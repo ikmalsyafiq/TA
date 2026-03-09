@@ -254,7 +254,9 @@ def analysis_to_docx_bytes(title: str, analysis: str) -> bytes:
 
     def normalize_text(text: str) -> str:
         cleaned = text.strip()
-        cleaned = re.sub(r"^\*\*(.+?)\*\*$", r"\1", cleaned)
+        cleaned = cleaned.replace("\t", " ")
+        cleaned = re.sub(r"\*\*(.*?)\*\*", r"\1", cleaned)
+        cleaned = re.sub(r"__(.*?)__", r"\1", cleaned)
         cleaned = cleaned.replace("\u2014", "-")
         return cleaned.strip()
 
@@ -268,7 +270,9 @@ def analysis_to_docx_bytes(title: str, analysis: str) -> bytes:
         elif stripped.endswith(":") and len(stripped) <= 80:
             doc.add_heading(stripped[:-1], level=3)
         elif stripped.startswith("-") or stripped.startswith("•"):
-            doc.add_paragraph(stripped.lstrip("-• ").strip(), style="List Bullet")
+            bullet_text = stripped.lstrip("-• ").strip()
+            if bullet_text:
+                doc.add_paragraph(bullet_text, style="List Bullet")
         elif re.match(r"^\d+[\.)]\s+", stripped):
             numbered_text = re.sub(r"^\d+[\.)]\s+", "", stripped)
             doc.add_paragraph(numbered_text.strip(), style="List Number")
