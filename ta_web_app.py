@@ -45,16 +45,29 @@ def to_data_url(uploaded_file, max_dimension: int = 1800, jpeg_quality: int = 85
     return f"data:image/jpeg;base64,{encoded}"
 
 
-def build_prompt(instrument: str, manual_support: str = "", manual_resistance: str = "") -> str:
+def build_prompt(
+    instrument: str,
+    manual_support: str = "",
+    manual_resistance: str = "",
+    additional_input: str = "",
+) -> str:
     instrument_line = instrument.strip() or "Instrument not specified"
     support_line = manual_support.strip()
     resistance_line = manual_resistance.strip()
+    additional_line = additional_input.strip()
     level_guidance = ""
     if support_line or resistance_line:
         level_guidance = f"""
 User-provided key levels (treat as priority anchors unless clearly invalidated by current chart action):
 - Support: {support_line or 'Not provided'}
 - Resistance: {resistance_line or 'Not provided'}
+""".strip()
+
+    additional_guidance = ""
+    if additional_line:
+        additional_guidance = f"""
+Additional user context/instructions (optional):
+{additional_line}
 """.strip()
 
     return f"""
@@ -65,6 +78,8 @@ Instrument: {instrument_line}
 Date context: {datetime.now().strftime('%Y-%m-%d')}
 
 {level_guidance}
+
+{additional_guidance}
 
 Required structure:
 1) Instrument + Contract
@@ -376,6 +391,12 @@ manual_resistance = st.text_input(
     help="Optional. Example: 119.5 / 125.0 / 139.0",
 )
 
+additional_input = st.text_area(
+    "Additional Analyst Input (Optional)",
+    value="",
+    help="Optional extra instructions/context for the agent, e.g. event risk, preferred trade style, or key assumptions.",
+)
+
 uploads = st.file_uploader(
     "Upload screenshots (PNG/JPG)",
     type=["png", "jpg", "jpeg"],
@@ -417,7 +438,7 @@ if uploads and api_key:
                     client = build_client(api_key, "")
                     resolved_model = model
                     resolved_base_url = "https://api.openai.com"
-                prompt = build_prompt(instrument, manual_support, manual_resistance)
+                prompt = build_prompt(instrument, manual_support, manual_resistance, additional_input)
                 analysis = generate_analysis(client, resolved_model, prompt, data_urls)
                 doc_name = f"TA_Analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
                 try:
