@@ -6,8 +6,6 @@ from pathlib import Path
 from datetime import datetime
 
 import streamlit as st
-from docx import Document
-from docx.shared import Pt
 from PIL import Image
 import requests
 import truststore
@@ -219,6 +217,14 @@ def persist_uploads(uploaded_files) -> tuple[list[str], list[Path], str]:
 
 
 def analysis_to_docx_bytes(title: str, analysis: str) -> bytes:
+    try:
+        from docx import Document
+        from docx.shared import Pt
+    except Exception as error:
+        raise RuntimeError(
+            "Word export requires python-docx. Install dependency 'python-docx'."
+        ) from error
+
     doc = Document()
     style = doc.styles["Normal"]
     style.font.name = "Calibri"
@@ -365,7 +371,10 @@ if uploads and api_key:
                 prompt = build_prompt(instrument)
                 analysis = generate_analysis(client, resolved_model, prompt, data_urls)
                 doc_name = f"TA_Analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
-                doc_bytes = analysis_to_docx_bytes(instrument, analysis)
+                try:
+                    doc_bytes = analysis_to_docx_bytes(instrument, analysis)
+                except Exception:
+                    doc_bytes = b""
 
             st.session_state.last_upload_signature = upload_signature
             st.session_state.latest_analysis = analysis
@@ -411,12 +420,15 @@ if st.session_state.latest_analysis:
 
     st.subheader("Analysis")
     st.write(st.session_state.latest_analysis)
-    st.download_button(
-        "Download Word Report",
-        data=st.session_state.latest_doc_bytes,
-        file_name=st.session_state.latest_doc_name,
-        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    )
+    if st.session_state.latest_doc_bytes:
+        st.download_button(
+            "Download Word Report",
+            data=st.session_state.latest_doc_bytes,
+            file_name=st.session_state.latest_doc_name,
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        )
+    else:
+        st.warning("Word export is unavailable because python-docx is not installed in this environment.")
 
 st.divider()
 st.markdown("""
