@@ -8,14 +8,19 @@ from datetime import datetime
 import streamlit as st
 from PIL import Image
 import requests
-import truststore
+try:
+    import truststore
+except ModuleNotFoundError:
+    truststore = None
+
 from openai import OpenAI
 from openai import APIConnectionError, APIStatusError, AuthenticationError, BadRequestError, RateLimitError
 
 
 st.set_page_config(page_title="Commodities TA Analyzer", layout="wide")
 
-truststore.inject_into_ssl()
+if truststore is not None:
+    truststore.inject_into_ssl()
 
 UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
