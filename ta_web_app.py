@@ -74,7 +74,7 @@ Required structure:
 5) Intraday (Hourly) Structure: 2-4 concise observations + takeaway
 6) Daily Structure: 2-4 concise observations + takeaway
 7) Weekly Structure: 2-4 concise observations + takeaway
-8) Momentum & Indicators: RSI, Stochastic, MACD for Daily and Weekly + takeaway
+8) Momentum & Indicators: RSI, Stochastic, MACD, and ATR/ADX (if visible) for Daily and Weekly + takeaway
 9) Bottom Line
 10) Alternative Trade Setup (lower probability)
 
@@ -82,7 +82,9 @@ Rules:
 - Prioritize price action and structure over indicators.
 - Use concrete levels from charts where visible.
 - Write concise, professional, actionable language.
-- If some indicator is not visible, state that explicitly.
+- If ATR or ADX is visible, interpret:
+    - ATR as volatility/expansion vs contraction context
+    - ADX as trend strength (e.g., weak, developing, strong)
 """.strip()
 
 
