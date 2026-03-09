@@ -2,6 +2,7 @@ import base64
 import hashlib
 import io
 import os
+import re
 from pathlib import Path
 from datetime import datetime
 
@@ -234,14 +235,31 @@ def analysis_to_docx_bytes(title: str, analysis: str) -> bytes:
     style = doc.styles["Normal"]
     style.font.name = "Calibri"
     style.font.size = Pt(11)
+    style.paragraph_format.space_after = Pt(6)
+    style.paragraph_format.line_spacing = 1.15
 
     doc.add_heading(title, level=1)
+
+    def normalize_text(text: str) -> str:
+        cleaned = text.strip()
+        cleaned = re.sub(r"^\*\*(.+?)\*\*$", r"\1", cleaned)
+        cleaned = cleaned.replace("\u2014", "-")
+        return cleaned.strip()
+
     for line in analysis.splitlines():
-        stripped = line.strip()
+        stripped = normalize_text(line)
         if not stripped:
             doc.add_paragraph("")
+        elif re.match(r"^#{1,3}\s+", stripped):
+            heading_text = re.sub(r"^#{1,3}\s+", "", stripped).strip()
+            doc.add_heading(heading_text, level=2)
+        elif stripped.endswith(":") and len(stripped) <= 80:
+            doc.add_heading(stripped[:-1], level=3)
         elif stripped.startswith("-") or stripped.startswith("•"):
-            doc.add_paragraph(stripped.lstrip("-• "), style="List Bullet")
+            doc.add_paragraph(stripped.lstrip("-• ").strip(), style="List Bullet")
+        elif re.match(r"^\d+[\.)]\s+", stripped):
+            numbered_text = re.sub(r"^\d+[\.)]\s+", "", stripped)
+            doc.add_paragraph(numbered_text.strip(), style="List Number")
         else:
             doc.add_paragraph(stripped)
 
