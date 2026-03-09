@@ -105,6 +105,7 @@ Rules:
 - Use concrete levels from charts where visible.
 - Write concise, professional, actionable language.
 - If timeframe detection is uncertain for any image, make the best estimate and proceed.
+- Price need $
 - If ATR or ADX is visible, interpret:
     - ATR as volatility/expansion vs contraction context
     - ADX as trend strength (e.g., weak, developing, strong)
@@ -533,3 +534,5 @@ st.markdown("""
 - Upload screenshots.
 - Analysis runs automatically and appears below.
 """)
+
+
