@@ -50,11 +50,14 @@ def build_prompt(
     manual_support: str = "",
     manual_resistance: str = "",
     additional_input: str = "",
+    uploaded_file_names: list[str] | None = None,
 ) -> str:
     instrument_line = instrument.strip() or "Instrument not specified"
     support_line = manual_support.strip()
     resistance_line = manual_resistance.strip()
     additional_line = additional_input.strip()
+    uploaded_file_names = uploaded_file_names or []
+    files_line = ", ".join(uploaded_file_names) if uploaded_file_names else "Not provided"
     level_guidance = ""
     if support_line or resistance_line:
         level_guidance = f"""
@@ -76,6 +79,7 @@ Analyze the uploaded chart screenshots and produce a professional trading-desk t
 
 Instrument: {instrument_line}
 Date context: {datetime.now().strftime('%Y-%m-%d')}
+Uploaded screenshot file names: {files_line}
 
 {level_guidance}
 
@@ -83,13 +87,15 @@ Date context: {datetime.now().strftime('%Y-%m-%d')}
 
 Required structure:
 1) Instrument + Contract
-2) Intraday bias / Short-term bias (Daily) / Medium-term bias (Weekly)
+2) Timeframe map + Bias by detected timeframe
+    - First detect available timeframes from chart labels and file names.
+    - Then report bias in sequence from lowest to highest timeframe detected.
+    - Do NOT force missing frames (e.g., if only 1H/2H/4H/D are present, use those only).
 3) Key Levels: Support (3) and Resistance (3)
 4) Primary Trade Idea (trend-aligned): direction, entry, target, stretch target, stop, reason, invalidation
-5) Intraday (Hourly) Structure: 2-4 concise observations + takeaway
-6) Daily Structure: 2-4 concise observations + takeaway
-7) Weekly Structure: 2-4 concise observations + takeaway
-8) Momentum & Indicators: RSI, Stochastic, MACD, and ATR/ADX (if visible) for Daily and Weekly + takeaway
+5) Structure by detected timeframe:
+    - For each detected timeframe, provide 2-4 concise observations + one takeaway.
+6) Momentum & Indicators by detected timeframe: RSI, Stochastic, MACD, and ATR/ADX (if visible) + takeaway
 9) Bottom Line
 10) Alternative Trade Setup (lower probability)
 
@@ -97,6 +103,7 @@ Rules:
 - Prioritize price action and structure over indicators.
 - Use concrete levels from charts where visible.
 - Write concise, professional, actionable language.
+- If timeframe detection is uncertain for any image, make the best estimate and proceed.
 - If ATR or ADX is visible, interpret:
     - ATR as volatility/expansion vs contraction context
     - ADX as trend strength (e.g., weak, developing, strong)
@@ -274,15 +281,25 @@ def analysis_to_docx_bytes(title: str, analysis: str) -> bytes:
         cleaned = cleaned.replace("\t", " ")
         cleaned = re.sub(r"\*\*(.*?)\*\*", r"\1", cleaned)
         cleaned = re.sub(r"__(.*?)__", r"\1", cleaned)
+        cleaned = re.sub(r"\s+", " ", cleaned)
         cleaned = cleaned.replace("\u2014", "-")
         return cleaned.strip()
 
+    blank_streak = 0
     for line in analysis.splitlines():
         stripped = normalize_text(line)
         if not stripped:
-            doc.add_paragraph("")
-        elif re.match(r"^#{1,3}\s+", stripped):
-            heading_text = re.sub(r"^#{1,3}\s+", "", stripped).strip()
+            blank_streak += 1
+            if blank_streak <= 1:
+                doc.add_paragraph("")
+            continue
+        blank_streak = 0
+
+        section_match = re.match(r"^(?:#{1,6}\s*)?(\d+)\)\s+(.+)$", stripped)
+        if section_match:
+            doc.add_heading(f"{section_match.group(1)}) {section_match.group(2).strip()}", level=2)
+        elif re.match(r"^#{1,6}\s+", stripped):
+            heading_text = re.sub(r"^#{1,6}\s+", "", stripped).strip()
             doc.add_heading(heading_text, level=2)
         elif stripped.endswith(":") and len(stripped) <= 80:
             doc.add_heading(stripped[:-1], level=3)
@@ -290,8 +307,8 @@ def analysis_to_docx_bytes(title: str, analysis: str) -> bytes:
             bullet_text = stripped.lstrip("-• ").strip()
             if bullet_text:
                 doc.add_paragraph(bullet_text, style="List Bullet")
-        elif re.match(r"^\d+[\.)]\s+", stripped):
-            numbered_text = re.sub(r"^\d+[\.)]\s+", "", stripped)
+        elif re.match(r"^\d+\.\s+", stripped):
+            numbered_text = re.sub(r"^\d+\.\s+", "", stripped)
             doc.add_paragraph(numbered_text.strip(), style="List Number")
         else:
             doc.add_paragraph(stripped)
@@ -438,7 +455,14 @@ if uploads and api_key:
                     client = build_client(api_key, "")
                     resolved_model = model
                     resolved_base_url = "https://api.openai.com"
-                prompt = build_prompt(instrument, manual_support, manual_resistance, additional_input)
+                uploaded_file_names = [upload.name for upload in uploads]
+                prompt = build_prompt(
+                    instrument,
+                    manual_support,
+                    manual_resistance,
+                    additional_input,
+                    uploaded_file_names,
+                )
                 analysis = generate_analysis(client, resolved_model, prompt, data_urls)
                 doc_name = f"TA_Analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
                 try:
