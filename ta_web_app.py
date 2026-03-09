@@ -90,6 +90,7 @@ Required structure:
 2) Timeframe map + Bias by detected timeframe
     - First detect available timeframes from chart labels and file names.
     - Then report bias in sequence from lowest to highest timeframe detected.
+    - Sentence explaining the bias
     - Do NOT force missing frames (e.g., if only 1H/2H/4H/D are present, use those only).
 3) Key Levels: Support (3) and Resistance (3)
 4) Primary Trade Idea (trend-aligned): direction, entry, target, stretch target, stop, reason, invalidation
