@@ -530,6 +530,6 @@ st.markdown("""
 **How to use**
 - Select provider.
 - Paste provider token/key.
-- Upload 1H, 1D, and 1W screenshots.
+- Upload screenshots.
 - Analysis runs automatically and appears below.
 """)
