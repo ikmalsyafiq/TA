@@ -45,14 +45,26 @@ def to_data_url(uploaded_file, max_dimension: int = 1800, jpeg_quality: int = 85
     return f"data:image/jpeg;base64,{encoded}"
 
 
-def build_prompt(instrument: str) -> str:
+def build_prompt(instrument: str, manual_support: str = "", manual_resistance: str = "") -> str:
     instrument_line = instrument.strip() or "Instrument not specified"
+    support_line = manual_support.strip()
+    resistance_line = manual_resistance.strip()
+    level_guidance = ""
+    if support_line or resistance_line:
+        level_guidance = f"""
+User-provided key levels (treat as priority anchors unless clearly invalidated by current chart action):
+- Support: {support_line or 'Not provided'}
+- Resistance: {resistance_line or 'Not provided'}
+""".strip()
+
     return f"""
 You are a senior technical analyst specializing in energy and commodity markets.
 Analyze the uploaded chart screenshots and produce a professional trading-desk technical briefing.
 
 Instrument: {instrument_line}
 Date context: {datetime.now().strftime('%Y-%m-%d')}
+
+{level_guidance}
 
 Required structure:
 1) Instrument + Contract
@@ -320,8 +332,6 @@ if st.button(connection_label):
             with st.spinner("Testing connection..."):
                 if provider == "GitHub Models (Copilot-style)":
                     client, resolved_base_url, resolved_model = get_working_client(provider, api_key, base_url, model)
-                    if normalize_base_url(base_url) != normalize_base_url(resolved_base_url):
-                        st.warning(f"Input endpoint returned 404. Using fallback endpoint: {resolved_base_url}")
                     if model_override.strip() and model.strip() != resolved_model:
                         st.warning(f"Model '{model}' unavailable. Using fallback model: {resolved_model}")
                 else:
@@ -347,6 +357,18 @@ if st.button("Test HTTPS (SSL/Proxy)"):
         st.info("If you are on a corporate network, verify proxy settings and outbound SSL inspection rules for this endpoint.")
 
 instrument = st.text_input("Instrument + Contract", value="Dutch TTF Natural Gas Futures (ICE Endex)")
+
+st.subheader("Manual Key Levels (Optional)")
+manual_support = st.text_input(
+    "Support levels",
+    value="",
+    help="Optional. Example: 113.0 / 109.5 / 99.0",
+)
+manual_resistance = st.text_input(
+    "Resistance levels",
+    value="",
+    help="Optional. Example: 119.5 / 125.0 / 139.0",
+)
 
 uploads = st.file_uploader(
     "Upload screenshots (PNG/JPG)",
@@ -385,13 +407,11 @@ if uploads and api_key:
             with st.spinner("New screenshots detected. Running analysis automatically..."):
                 if provider == "GitHub Models (Copilot-style)":
                     client, resolved_base_url, resolved_model = get_working_client(provider, api_key, base_url, model)
-                    if normalize_base_url(base_url) != normalize_base_url(resolved_base_url):
-                        st.warning(f"Input endpoint returned 404. Using fallback endpoint: {resolved_base_url}")
                 else:
                     client = build_client(api_key, "")
                     resolved_model = model
                     resolved_base_url = "https://api.openai.com"
-                prompt = build_prompt(instrument)
+                prompt = build_prompt(instrument, manual_support, manual_resistance)
                 analysis = generate_analysis(client, resolved_model, prompt, data_urls)
                 doc_name = f"TA_Analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.docx"
                 try:
